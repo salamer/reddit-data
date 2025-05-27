@@ -1,6 +1,6 @@
 // This script initializes the database by creating the schema and synchronizing the tables
 
-import { AppDataSource, schema, Post } from './models';
+import { AppDataSource, schema, Posts } from './models';
 
 export async function initializeDatabase() {
   console.log('Initializing database...');

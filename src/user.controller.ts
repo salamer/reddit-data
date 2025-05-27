@@ -12,7 +12,7 @@ import {
   Get,
   SuccessResponse,
 } from 'tsoa';
-import { AppDataSource, User, Post as PostItem } from './models';
+import { AppDataSource, User, Posts } from './models';
 import type { JwtPayload } from './utils';
 import { PostResponse } from './post.controller';
 
@@ -61,7 +61,7 @@ export class UserController extends Controller {
       return notFound(404, { message: 'User not found' });
     }
 
-    const posts = await AppDataSource.getRepository(PostItem).find({
+    const posts = await AppDataSource.getRepository(Posts).find({
       where: { userId },
       relations: ['user'],
     });
@@ -70,7 +70,9 @@ export class UserController extends Controller {
       return notFound(404, { message: 'No liked posts found for this user.' });
     }
 
-    return posts.map((post) => ({
+    return posts.filter(
+      (post) => post.imageUrl !== null && post.subreddit !== null
+    ).map((post) => ({
       id: post.id,
       title: post.title,
       content: post.content,
