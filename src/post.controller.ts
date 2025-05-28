@@ -13,10 +13,11 @@ import {
   TsoaResponse,
   SuccessResponse,
 } from "tsoa";
-import { AppDataSource } from "./models";
+import { AppDataSource, Like } from "./models";
 import { Posts, User } from "./models";
 import { uploadBase64ToObjectStorage } from "./objectstorage.service";
 import type { JwtPayload } from "./utils";
+import { In } from "typeorm";
 
 export interface CreatePostBase64Input {
   imageBase64: string;
@@ -36,6 +37,7 @@ export interface PostResponse {
   userId: number;
   username: string;
   avatarUrl: string | null;
+  hasLiked: boolean;
 }
 
 @Route("posts")
@@ -89,6 +91,7 @@ export class PostController extends Controller {
         ...savedPost,
         username: user?.username || "unknown",
         avatarUrl: user?.avatarUrl || null,
+        hasLiked: false, // Default to false, implement like logic separately
       };
     } catch (error: any) {
       console.error("Post creation failed:", error);
@@ -98,8 +101,10 @@ export class PostController extends Controller {
     }
   }
 
+  @Security("jwt", ["optional"])
   @Get("search")
   public async searchPosts(
+    @Request() req: Express.Request,
     @Query() query: string,
     @Query() limit: number = 10,
     @Query() offset: number = 0,
@@ -124,6 +129,17 @@ export class PostController extends Controller {
       .skip(offset)
       .getMany();
 
+    const currentUser = req.user as JwtPayload;
+    const likes =
+      currentUser && currentUser.userId
+        ? await AppDataSource.getRepository(Like).find({
+            where: {
+              userId: currentUser.userId,
+              postId: In(posts.map((p) => p.id)),
+            },
+          })
+        : [];
+
     return posts
       .filter((post) => post.user !== null)
       .map((post) => ({
@@ -136,11 +152,14 @@ export class PostController extends Controller {
         userId: post.userId,
         username: post.user?.username || "unknown",
         avatarUrl: post.user?.avatarUrl || null,
+        hasLiked: likes.some((like) => like.postId === post.id),
       }));
   }
 
+  @Security("jwt", ["optional"])
   @Get("{postId}")
   public async getPostById(
+    @Request() req: Express.Request,
     @Path() postId: number,
     @Res() notFoundResponse: TsoaResponse<404, { message: string }>
   ): Promise<PostResponse> {
@@ -153,6 +172,17 @@ export class PostController extends Controller {
       return notFoundResponse(404, { message: "Post not found" });
     }
 
+    const currentUser = req.user as JwtPayload;
+    const likes =
+      currentUser && currentUser.userId
+        ? await AppDataSource.getRepository(Like).find({
+            where: {
+              userId: currentUser.userId,
+              postId: post.id,
+            },
+          })
+        : [];
+
     return {
       id: post.id,
       imageUrl: post.imageUrl,
@@ -163,11 +193,14 @@ export class PostController extends Controller {
       userId: post.userId,
       username: post.user?.username || "unknown",
       avatarUrl: post.user?.avatarUrl || null,
+      hasLiked: likes.some((like) => like.postId === post.id),
     };
   }
 
+  @Security("jwt", ["optional"])
   @Get("")
   public async getFeedPosts(
+    @Request() req: Express.Request,
     @Query() limit: number = 10,
     @Query() offset: number = 0
   ): Promise<PostResponse[]> {
@@ -177,6 +210,17 @@ export class PostController extends Controller {
       take: limit,
       skip: offset,
     });
+
+    const currentUser = req.user as JwtPayload;
+    const likes =
+      currentUser && currentUser.userId
+        ? await AppDataSource.getRepository(Like).find({
+            where: {
+              userId: currentUser.userId,
+              postId: In(posts.map((p) => p.id)),
+            },
+          })
+        : [];
 
     return posts.map((post) => ({
       id: post.id,
@@ -188,11 +232,14 @@ export class PostController extends Controller {
       userId: post.userId,
       username: post.user?.username || "unknown",
       avatarUrl: post.user?.avatarUrl || null,
+      hasLiked: likes.some((like) => like.postId === post.id),
     }));
   }
 
+  @Security("jwt", ["optional"])
   @Get("/r/{subreddit}")
   public async getPostsBySubreddit(
+    @Request() req: Express.Request,
     @Path() subreddit: string,
     @Res() notFoundResponse: TsoaResponse<404, { message: string }>
   ): Promise<PostResponse[]> {
@@ -202,9 +249,17 @@ export class PostController extends Controller {
       .where("posts.subreddit = :subreddit", { subreddit })
       .orderBy("posts.createdAt", "DESC")
       .getMany();
-    if (posts.length === 0) {
-      return notFoundResponse(404, { message: "Subreddit not found" });
-    }
+
+    const currentUser = req.user as JwtPayload;
+    const likes =
+      currentUser && currentUser.userId
+        ? await AppDataSource.getRepository(Like).find({
+            where: {
+              userId: currentUser.userId,
+              postId: In(posts.map((p) => p.id)),
+            },
+          })
+        : [];
 
     return posts
       .filter((post) => post.user !== null)
@@ -218,6 +273,7 @@ export class PostController extends Controller {
         userId: post.userId,
         username: post.user?.username || "unknown",
         avatarUrl: post.user?.avatarUrl || null,
+        hasLiked: likes.some((like) => like.postId === post.id),
       }));
   }
 }

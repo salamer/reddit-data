@@ -41,6 +41,9 @@
 					"avatarUrl": {
 						"type": "string",
 						"nullable": true
+					},
+					"hasLiked": {
+						"type": "boolean"
 					}
 				},
 				"required": [
@@ -52,7 +55,8 @@
 					"createdAt",
 					"userId",
 					"username",
-					"avatarUrl"
+					"avatarUrl",
+					"hasLiked"
 				],
 				"type": "object",
 				"additionalProperties": false
@@ -270,9 +274,9 @@
 		}
 	},
 	"info": {
-		"title": "Instagram Simplified API",
+		"title": "Reddit Simplified API",
 		"version": "1.0.0",
-		"description": "API docs for simplified Instagram backend",
+		"description": "API docs for simplified Reddit backend",
 		"contact": {
 			"name": "Your Name"
 		}
@@ -369,7 +373,13 @@
 				"tags": [
 					"Posts"
 				],
-				"security": [],
+				"security": [
+					{
+						"jwt": [
+							"optional"
+						]
+					}
+				],
 				"parameters": [
 					{
 						"in": "query",
@@ -433,7 +443,13 @@
 				"tags": [
 					"Posts"
 				],
-				"security": [],
+				"security": [
+					{
+						"jwt": [
+							"optional"
+						]
+					}
+				],
 				"parameters": [
 					{
 						"in": "query",
@@ -502,7 +518,13 @@
 				"tags": [
 					"Posts"
 				],
-				"security": [],
+				"security": [
+					{
+						"jwt": [
+							"optional"
+						]
+					}
+				],
 				"parameters": [
 					{
 						"in": "path",
@@ -555,7 +577,13 @@
 				"tags": [
 					"Posts"
 				],
-				"security": [],
+				"security": [
+					{
+						"jwt": [
+							"optional"
+						]
+					}
+				],
 				"parameters": [
 					{
 						"in": "path",
@@ -657,7 +685,13 @@
 				"tags": [
 					"Users"
 				],
-				"security": [],
+				"security": [
+					{
+						"jwt": [
+							"optional"
+						]
+					}
+				],
 				"parameters": [
 					{
 						"in": "path",

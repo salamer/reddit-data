@@ -11,10 +11,11 @@ import {
   TsoaResponse,
   Get,
   SuccessResponse,
-} from 'tsoa';
-import { AppDataSource, User, Posts } from './models';
-import type { JwtPayload } from './utils';
-import { PostResponse } from './post.controller';
+} from "tsoa";
+import { AppDataSource, User, Posts, Like } from "./models";
+import type { JwtPayload } from "./utils";
+import { PostResponse } from "./post.controller";
+import { In } from "typeorm";
 
 interface UserProfileResponse {
   id: number;
@@ -24,22 +25,21 @@ interface UserProfileResponse {
   createdAt: Date;
 }
 
-@Route('users')
-@Tags('Users')
+@Route("users")
+@Tags("Users")
 export class UserController extends Controller {
-  @Get('{userId}/profile')
+  @Get("{userId}/profile")
   public async getUserProfile(
     @Path() userId: number,
-    @Res() notFound: TsoaResponse<404, { message: string }>,
+    @Res() notFound: TsoaResponse<404, { message: string }>
   ): Promise<UserProfileResponse> {
     const userRepo = AppDataSource.getRepository(User);
 
     const user = await userRepo.findOneBy({ id: userId });
     if (!user) {
-      return notFound(404, { message: 'User not found' });
+      return notFound(404, { message: "User not found" });
     }
 
-  
     return {
       id: user.id,
       username: user.username,
@@ -49,39 +49,49 @@ export class UserController extends Controller {
     };
   }
 
-  @Get('{userId}/likes')
+  @Security("jwt", ["optional"])
+  @Get("{userId}/likes")
   public async getUserLikes(
+    @Request() req: Express.Request,
     @Path() userId: number,
-    @Res() notFound: TsoaResponse<404, { message: string }>,
+    @Res() notFound: TsoaResponse<404, { message: string }>
   ): Promise<PostResponse[]> {
     const user = await AppDataSource.getRepository(User).findOneBy({
       id: userId,
     });
     if (!user) {
-      return notFound(404, { message: 'User not found' });
+      return notFound(404, { message: "User not found" });
     }
 
-    const posts = await AppDataSource.getRepository(Posts).find({
+    const posts = await AppDataSource.getRepository(Like).find({
       where: { userId },
-      relations: ['user'],
+      relations: ["user", "post"],
     });
 
-    if (posts.length === 0) {
-      return notFound(404, { message: 'No liked posts found for this user.' });
-    }
+    const currentUser = req.user as JwtPayload;
+    const likes =
+      currentUser && currentUser.userId
+        ? await AppDataSource.getRepository(Like).find({
+            where: {
+              userId: currentUser.userId,
+              postId: In(posts.map((p) => p.id)),
+            },
+          })
+        : [];
 
-    return posts.filter(
-      (post) => post.imageUrl !== null && post.subreddit !== null
-    ).map((post) => ({
-      id: post.id,
-      title: post.title,
-      content: post.content,
-      userId: post.userId,
-      username: post.user.username,
-      avatarUrl: post.user.avatarUrl,
-      createdAt: post.createdAt,
-      imageUrl: post.imageUrl,
-      subreddit: post.subreddit,
-    }));
+    return posts
+      .filter((post) => post.user !== null && post.post !== null)
+      .map((post) => ({
+        id: post.id,
+        userId: post.user.id,
+        username: post.user.username,
+        avatarUrl: post.user.avatarUrl,
+        createdAt: post.createdAt,
+        imageUrl: post.post.imageUrl,
+        subreddit: post.post.subreddit,
+        title: post.post.title,
+        content: post.post.content,
+        hasLiked: likes.some((like) => like.postId === post.id),
+      }));
   }
 }
